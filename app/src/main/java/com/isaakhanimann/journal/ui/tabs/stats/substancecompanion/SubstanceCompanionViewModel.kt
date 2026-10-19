@@ -76,6 +76,10 @@ class SubstanceCompanionViewModel @AssistedInject constructor(
         viewModelScope.launch { userPreferences.savePkHalfLifeHours(substanceName, hours) }
     }
 
+    fun clearPkHalfLifeHours() {
+        viewModelScope.launch { userPreferences.clearPkHalfLifeHours(substanceName) }
+    }
+
     val pkDosesFlow: StateFlow<PkDoses> =
         experienceRepo.getSortedIngestionsWithExperienceAndCustomUnitFlow(substanceName)
             .map { entries ->

@@ -58,6 +58,10 @@ class UserPreferences @Inject constructor(private val dataStore: DataStore<Prefe
         dataStore.edit { it[pkHalfLifeKey(substanceName)] = hours }
     }
 
+    suspend fun clearPkHalfLifeHours(substanceName: String) {
+        dataStore.edit { it.remove(pkHalfLifeKey(substanceName)) }
+    }
+
     private object PreferencesKeys {
         val KEY_TIME_DISPLAY_OPTION = stringPreferencesKey("key_time_display_option")
 

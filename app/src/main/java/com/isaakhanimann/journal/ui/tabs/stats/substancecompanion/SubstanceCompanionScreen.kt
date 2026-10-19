@@ -106,6 +106,7 @@ fun SubstanceCompanionScreen(
             pkHalfLifeHours = viewModel.pkHalfLifeHoursFlow.collectAsState().value,
             pkNow = viewModel.pkNowFlow.collectAsState().value,
             onSavePkHalfLifeHours = viewModel::savePkHalfLifeHours,
+            onClearPkHalfLifeHours = viewModel::clearPkHalfLifeHours,
             substanceRepo = viewModel.substanceRepo
         )
     }
@@ -126,6 +127,7 @@ fun SubstanceCompanionScreen(
     pkHalfLifeHours: Double? = null,
     pkNow: Instant = Instant.now(),
     onSavePkHalfLifeHours: (Double) -> Unit = {},
+    onClearPkHalfLifeHours: () -> Unit = {},
     substanceRepo: SubstanceRepository
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -185,14 +187,27 @@ fun SubstanceCompanionScreen(
                 }
             }
 
+            item {
+                SubstanceEffectCard(
+                    substance = substanceRepo.getSubstance(substanceCompanion.substanceName),
+                    companion = substanceCompanion,
+                    bursts = ingestionBursts,
+                    consumerName = consumerName,
+                    now = pkNow,
+                    onShowSubstance = { navigateToSubstanceScreen(substanceCompanion.substanceName) }
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             // ── Activity Heatmap Grid ─────────────────────────────────────────
             item {
                 PkCurveCard(
+                    substanceName = substanceCompanion.substanceName,
                     pkDoses = pkDoses,
                     halfLifeHours = pkHalfLifeHours,
                     now = pkNow,
                     accentColor = substanceColor,
-                    onSaveHalfLifeHours = onSavePkHalfLifeHours
+                    onSaveHalfLifeHours = onSavePkHalfLifeHours,
+                    onClearHalfLifeHours = onClearPkHalfLifeHours
                 )
                 Spacer(Modifier.height(8.dp))
             }

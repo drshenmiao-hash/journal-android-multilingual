@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -41,34 +43,66 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun PkCurveCard(
+    substanceName: String,
     pkDoses: PkDoses,
     halfLifeHours: Double?,
     now: Instant,
     accentColor: Color,
-    onSaveHalfLifeHours: (Double) -> Unit
+    onSaveHalfLifeHours: (Double) -> Unit,
+    onClearHalfLifeHours: () -> Unit
 ) {
-    var enteredHalfLife by rememberSaveable { mutableStateOf("") }
-    LaunchedEffect(halfLifeHours) {
-        if (halfLifeHours != null) enteredHalfLife = halfLifeHours.toString()
+    val reference = BuiltInPkReferences.all[substanceName]
+    val effectiveHalfLife = BuiltInPkReferences.effectiveHalfLife(substanceName, halfLifeHours)
+    val uriHandler = LocalUriHandler.current
+    var showAdvanced by rememberSaveable(substanceName) { mutableStateOf(false) }
+    var enteredHalfLife by rememberSaveable(substanceName) { mutableStateOf("") }
+    LaunchedEffect(effectiveHalfLife) {
+        enteredHalfLife = effectiveHalfLife?.toString().orEmpty()
     }
     val parsedHalfLife = enteredHalfLife.replace(',', '.').toDoubleOrNull()
         ?.takeIf { it.isFinite() && it in 0.1..10000.0 }
     val recorded = remember(pkDoses, now) { pkDoses.recordedAt(now) }
     val pastDoses = recorded.doses
     val excludedCount = recorded.excludedCount
-    val points by produceState<List<PkPoint>>(emptyList(), recorded, halfLifeHours, now) {
-        value = if (halfLifeHours == null) emptyList() else withContext(Dispatchers.Default) {
+    val points by produceState<List<PkPoint>>(emptyList(), recorded, effectiveHalfLife, now) {
+        value = if (effectiveHalfLife == null) emptyList() else withContext(Dispatchers.Default) {
             PkCurve.series(
                 pastDoses,
                 now.minus(Duration.ofDays(30)),
                 now.plus(Duration.ofDays(7)),
-                halfLifeHours
+                effectiveHalfLife
             )
         }
     }
 
     CardWithTitle(title = i18n("pk_curve_title"), modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (halfLifeHours != null) {
+                Text(i18n("pk_custom_reference", mapOf("hours" to halfLifeHours.toString())),
+                    style = MaterialTheme.typography.bodySmall)
+            } else if (reference != null) {
+                Text(i18n("pk_builtin_reference", mapOf("hours" to reference.halfLifeHours.toString())),
+                    style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text(i18n("pk_reference_missing"), style = MaterialTheme.typography.bodySmall)
+            }
+            if (reference != null) {
+                reference.rangeHours?.let {
+                    Text(i18n("pk_reference_range", mapOf("range" to it)),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                if (reference.usesRangeMidpoint) {
+                    Text(i18n("pk_reference_midpoint"), style = MaterialTheme.typography.bodySmall)
+                }
+                if (reference.requiresNormalRenalFunction) {
+                    Text(i18n("pk_reference_renal"), style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = { uriHandler.openUri(reference.sourceUrl) }) {
+                    Text(i18n("pk_reference_source"))
+                }
+            }
+            TextButton(onClick = { showAdvanced = !showAdvanced }) { Text(i18n("pk_advanced")) }
+            if (showAdvanced) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = enteredHalfLife,
@@ -86,6 +120,10 @@ fun PkCurveCard(
                     modifier = Modifier.padding(top = 8.dp)
                 ) { Text(i18n("pk_apply")) }
             }
+                if (halfLifeHours != null) {
+                    TextButton(onClick = onClearHalfLifeHours) { Text(i18n("pk_reset_reference")) }
+                }
+            }
             Text(i18n("pk_model_note"), style = MaterialTheme.typography.bodySmall)
             if (excludedCount > 0) {
                 Text(
@@ -94,8 +132,8 @@ fun PkCurveCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (halfLifeHours != null && pastDoses.isNotEmpty()) {
-                val current = PkCurve.remaining(pastDoses, now, halfLifeHours)
+            if (effectiveHalfLife != null && pastDoses.isNotEmpty()) {
+                val current = PkCurve.remaining(pastDoses, now, effectiveHalfLife)
                 Text(
                     i18n("pk_now_amount", mapOf("amount" to String.format(Locale.ROOT, "%.4g", current))),
                     style = MaterialTheme.typography.bodyMedium

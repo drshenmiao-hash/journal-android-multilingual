@@ -14,7 +14,7 @@ android {
         applicationId "in.kawaiis.journal"
         minSdk 26
         targetSdk 37
-        versionCode 1100800
+        versionCode 1100801
 
         versionName "11.8"
 
