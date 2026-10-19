@@ -77,6 +77,7 @@ import com.isaakhanimann.journal.ui.theme.horizontalPadding
 import com.isaakhanimann.journal.ui.utils.administrationRouteKey
 import com.isaakhanimann.journal.ui.utils.getDateWithWeekdayText
 import com.isaakhanimann.journal.ui.utils.getTimeText
+import java.time.Instant
 
 @Composable
 fun SubstanceCompanionScreen(
@@ -101,6 +102,10 @@ fun SubstanceCompanionScreen(
             tolerance = viewModel.tolerance,
             crossTolerances = viewModel.crossTolerances,
             consumerName = viewModel.consumerName,
+            pkDoses = viewModel.pkDosesFlow.collectAsState().value,
+            pkHalfLifeHours = viewModel.pkHalfLifeHoursFlow.collectAsState().value,
+            pkNow = viewModel.pkNowFlow.collectAsState().value,
+            onSavePkHalfLifeHours = viewModel::savePkHalfLifeHours,
             substanceRepo = viewModel.substanceRepo
         )
     }
@@ -117,6 +122,10 @@ fun SubstanceCompanionScreen(
     tolerance: Tolerance?,
     crossTolerances: List<String>,
     consumerName: String? = null,
+    pkDoses: PkDoses = PkDoses(emptyList(), 0),
+    pkHalfLifeHours: Double? = null,
+    pkNow: Instant = Instant.now(),
+    onSavePkHalfLifeHours: (Double) -> Unit = {},
     substanceRepo: SubstanceRepository
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -177,6 +186,17 @@ fun SubstanceCompanionScreen(
             }
 
             // ── Activity Heatmap Grid ─────────────────────────────────────────
+            item {
+                PkCurveCard(
+                    pkDoses = pkDoses,
+                    halfLifeHours = pkHalfLifeHours,
+                    now = pkNow,
+                    accentColor = substanceColor,
+                    onSaveHalfLifeHours = onSavePkHalfLifeHours
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
             item {
                 CardWithTitle(
                     title = i18n("substance_activity_title"),

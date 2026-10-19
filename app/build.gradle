@@ -38,6 +38,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // A preview APK can be installed without replacing a user's signed Journal app.
+            applicationIdSuffix ".pkpreview"
+        }
         release {
             def b64 = System.getenv("KEYSTORE_BASE64")
             if (b64 != null && !b64.isBlank()) {

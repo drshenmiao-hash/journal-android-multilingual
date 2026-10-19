@@ -30,6 +30,7 @@ import com.isaakhanimann.journal.data.substances.repositories.SubstanceRepositor
 import com.isaakhanimann.journal.ui.main.navigation.routes.SubstanceCompanionRoute
 import com.isaakhanimann.journal.ui.tabs.journal.addingestion.search.suggestion.models.CustomUnitDose
 import com.isaakhanimann.journal.ui.tabs.search.substance.roa.toReadableString
+import com.isaakhanimann.journal.ui.tabs.settings.combinations.UserPreferences
 import com.isaakhanimann.journal.ui.utils.getTimeDifferenceText
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -44,11 +45,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel(assistedFactory = SubstanceCompanionViewModel.Factory::class)
 class SubstanceCompanionViewModel @AssistedInject constructor(
     experienceRepo: ExperienceRepository,
     val substanceRepo: SubstanceRepository,
+    private val userPreferences: UserPreferences,
     @Assisted val route: SubstanceCompanionRoute
 ) : ViewModel() {
 
@@ -61,6 +64,23 @@ class SubstanceCompanionViewModel @AssistedInject constructor(
 
     private val substanceName = route.substanceName
     val consumerName = route.consumerName
+
+    val pkNowFlow: StateFlow<Instant> = currentTimeFlow.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), Instant.now()
+    )
+
+    val pkHalfLifeHoursFlow: StateFlow<Double?> = userPreferences.pkHalfLifeHoursFlow(substanceName)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun savePkHalfLifeHours(hours: Double) {
+        viewModelScope.launch { userPreferences.savePkHalfLifeHours(substanceName, hours) }
+    }
+
+    val pkDosesFlow: StateFlow<PkDoses> =
+        experienceRepo.getSortedIngestionsWithExperienceAndCustomUnitFlow(substanceName)
+            .map { entries ->
+                PkDoses.fromEntries(entries, substanceName, consumerName)
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PkDoses(emptyList(), 0))
 
     private val substance = substanceRepo.getSubstance(substanceName)
     val tolerance = substance?.tolerance

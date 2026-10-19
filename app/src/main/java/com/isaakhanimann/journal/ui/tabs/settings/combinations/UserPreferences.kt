@@ -43,6 +43,21 @@ import kotlinx.coroutines.flow.map
 
 @Singleton
 class UserPreferences @Inject constructor(private val dataStore: DataStore<Preferences>) {
+    private fun pkHalfLifeKey(substanceName: String) = doublePreferencesKey(
+        "pk_half_life_" + java.security.MessageDigest.getInstance("SHA-256")
+            .digest(substanceName.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    )
+
+    fun pkHalfLifeHoursFlow(substanceName: String): Flow<Double?> = dataStore.data.map { preferences ->
+        preferences[pkHalfLifeKey(substanceName)]?.takeIf { it.isFinite() && it in 0.1..10000.0 }
+    }
+
+    suspend fun savePkHalfLifeHours(substanceName: String, hours: Double) {
+        require(hours.isFinite() && hours in 0.1..10000.0)
+        dataStore.edit { it[pkHalfLifeKey(substanceName)] = hours }
+    }
+
     private object PreferencesKeys {
         val KEY_TIME_DISPLAY_OPTION = stringPreferencesKey("key_time_display_option")
 
@@ -473,7 +488,9 @@ class UserPreferences @Inject constructor(private val dataStore: DataStore<Prefe
             "substanceInteractions" -> BackupPreferenceType.STRING_SET
             PreferencesKeys.KEY_LAST_INGESTION_OF_EXPERIENCE.name,
             PreferencesKeys.KEY_CLONED_INGESTION_TIME.name -> BackupPreferenceType.LONG
-            else -> if (key.startsWith("key_roa_duration_preset_")) {
+            else -> if (key.matches(Regex("pk_half_life_[0-9a-f]{64}"))) {
+                BackupPreferenceType.DOUBLE
+            } else if (key.startsWith("key_roa_duration_preset_")) {
                 BackupPreferenceType.LONG
             } else {
                 null

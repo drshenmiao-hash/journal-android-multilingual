@@ -163,6 +163,21 @@ class TestJournalExport {
     }
 
     @Test
+    fun pkHalfLifePreferencesSurviveBackupWithoutChangingLegacyBackups() {
+        val key = "pk_half_life_" + "a".repeat(64)
+        val original = preferencesOf(doublePreferencesKey(key) to 24.5)
+        val backup = UserPreferences.createBackup(original)
+        val decoded = journalImportJson.decodeFromString<JournalExport>(
+            Json.encodeToString(JournalExport(preferences = backup))
+        )
+        val restored = mutablePreferencesOf()
+        UserPreferences.restoreValidatedBackupInto(restored, decoded.preferences)
+        assertEquals(24.5, restored[doublePreferencesKey(key)]!!, 0.0)
+        UserPreferences.restoreValidatedBackupInto(restored, null)
+        assertEquals(24.5, restored[doublePreferencesKey(key)]!!, 0.0)
+    }
+
+    @Test
     fun conflictingPreferenceTypesAreRejectedWithTheKeyName() {
         val invalid = UserPreferencesBackup(
             booleanValues = mapOf("same_key" to true),
